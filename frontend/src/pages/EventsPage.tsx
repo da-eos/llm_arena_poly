@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, type EventItem } from "../lib/api";
-import { Layout, formatDate, formatMoney, polymarketUrl } from "../components/layout";
+import { Layout, formatDate, formatMoney, polymarketUrl, tFilter } from "../components/layout";
 
 function EventRow({ event }: { event: EventItem }) {
   const qc = useQueryClient();
@@ -24,21 +24,21 @@ function EventRow({ event }: { event: EventItem }) {
               target="_blank"
               rel="noreferrer"
               className="text-xs text-blue-700 hover:underline"
-              title="Open on Polymarket"
+              title="Открыть на Polymarket"
             >
               ↗ polymarket
             </a>
           )}
         </div>
         <div className="text-xs text-muted-foreground">
-          {event.markets_count} markets · ends {formatDate(event.end_date)}
+          рынков: {event.markets_count} · до {formatDate(event.end_date)}
         </div>
       </td>
       <td className="px-4 py-3 text-right tabular-nums">{formatMoney(event.liquidity)}</td>
       <td className="px-4 py-3 text-center">
         {event.is_tracked ? (
           <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-            tracked
+            следим
           </span>
         ) : (
           <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -52,7 +52,7 @@ function EventRow({ event }: { event: EventItem }) {
             to={`/events/${event.id}`}
             className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 hover:bg-blue-200"
           >
-            {event.predictions_count} predictions →
+            {event.predictions_count} прогнозов →
           </Link>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
@@ -67,7 +67,7 @@ function EventRow({ event }: { event: EventItem }) {
           disabled={trackMut.isPending}
           className="rounded-md border px-3 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50"
         >
-          {trackMut.isPending ? "…" : event.is_tracked ? "Untrack" : "Track"}
+          {trackMut.isPending ? "…" : event.is_tracked ? "Снять" : "Следить"}
         </button>
       </td>
     </tr>
@@ -84,16 +84,22 @@ function JobsPanel() {
     mutationFn: (id: string) => api.runJob(id),
     onSuccess: () => refetch(),
   });
+  const JOB_NAMES_RU: Record<string, string> = {
+    sync_trending_events: "Загрузка трендов",
+    auto_track_top_events: "Авто-выбор событий",
+    refresh_tracked_events: "Обновление отслеживаемых",
+    predictions: "Прогоны прогнозов",
+  };
   return (
     <div className="rounded-lg border bg-card">
-      <div className="border-b px-4 py-3 text-sm font-semibold">Scheduled jobs</div>
+      <div className="border-b px-4 py-3 text-sm font-semibold">Фоновые задачи</div>
       <div className="divide-y text-sm">
         {data?.items.map((j) => (
           <div key={j.id} className="flex items-center justify-between px-4 py-3">
             <div>
-              <div className="font-medium">{j.id}</div>
+              <div className="font-medium">{JOB_NAMES_RU[j.id] ?? j.id}</div>
               <div className="text-xs text-muted-foreground">
-                next: {j.next_run_time ? new Date(j.next_run_time).toLocaleTimeString() : "—"}
+                следующий запуск: {j.next_run_time ? new Date(j.next_run_time).toLocaleTimeString("ru-RU") : "—"}
               </div>
             </div>
             <button
@@ -101,7 +107,7 @@ function JobsPanel() {
               disabled={runMut.isPending}
               className="rounded-md border px-3 py-1 text-xs hover:bg-muted disabled:opacity-50"
             >
-              Run
+              Запустить
             </button>
           </div>
         ))}
@@ -111,7 +117,6 @@ function JobsPanel() {
 }
 
 export default function EventsPage() {
-  // Default to tracked — those are the events with (or that will have) predictions.
   const [trackedFilter, setTrackedFilter] = useState<"all" | "tracked" | "untracked">("tracked");
   const qc = useQueryClient();
   const params = {
@@ -141,29 +146,29 @@ export default function EventsPage() {
             disabled={syncMut.isPending}
             className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
           >
-            {syncMut.isPending ? "Syncing…" : "1. Sync Polymarket"}
+            {syncMut.isPending ? "Загружаю…" : "1. Загрузить с Polymarket"}
           </button>
           <button
             onClick={() => predictMut.mutate()}
             disabled={predictMut.isPending}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {predictMut.isPending ? "Predicting…" : "2. Predict on tracked events"}
+            {predictMut.isPending ? "Прогнозирую…" : "2. Запустить прогнозы по отслеживаемым"}
           </button>
           <div className="ml-auto text-xs text-muted-foreground">
-            Track an event → run predictions → click row to view per-model forecasts.
+            Возьми событие в работу → запусти прогнозы → кликни по строке, чтобы увидеть прогнозы каждой модели.
           </div>
         </div>
-        <div className="mt-2 flex gap-4 text-xs">
+        <div className="mt-2 flex flex-wrap gap-4 text-xs">
           {syncMut.data && (
             <span className="text-emerald-700">
-              ✓ synced {syncMut.data.events} events / {syncMut.data.markets} markets
+              ✓ загружено: событий {syncMut.data.events}, рынков {syncMut.data.markets}
             </span>
           )}
           {predictMut.data && (
             <span className="text-emerald-700">
-              ✓ predictions: {predictMut.data.ok} ok, {predictMut.data.error} err,{" "}
-              {predictMut.data.skipped} skipped (of {predictMut.data.total})
+              ✓ прогнозы: {predictMut.data.ok} успешно, {predictMut.data.error} ошибок,{" "}
+              {predictMut.data.skipped} пропущено (всего {predictMut.data.total})
             </span>
           )}
           {predictMut.error && (
@@ -183,12 +188,12 @@ export default function EventsPage() {
                   trackedFilter === v ? "bg-primary text-primary-foreground" : "hover:bg-muted"
                 }`}
               >
-                {v}
+                {tFilter(v)}
               </button>
             ))}
             {data && (
               <span className="ml-auto text-xs text-muted-foreground">
-                showing {data.items.length} of {data.total}
+                показано {data.items.length} из {data.total}
               </span>
             )}
           </div>
@@ -197,16 +202,16 @@ export default function EventsPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 text-left">Event</th>
-                  <th className="px-4 py-2 text-right">Liquidity</th>
-                  <th className="px-4 py-2 text-center">Tracked</th>
-                  <th className="px-4 py-2 text-center">Predictions</th>
+                  <th className="px-4 py-2 text-left">Событие</th>
+                  <th className="px-4 py-2 text-right">Ликвидность</th>
+                  <th className="px-4 py-2 text-center">Статус</th>
+                  <th className="px-4 py-2 text-center">Прогнозы</th>
                   <th className="px-4 py-2"></th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Загрузка…</td></tr>
                 )}
                 {error && (
                   <tr><td colSpan={5} className="px-4 py-8 text-center text-red-700">{(error as Error).message}</td></tr>
@@ -216,8 +221,8 @@ export default function EventsPage() {
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                       {trackedFilter === "tracked"
-                        ? "No tracked events. Wait for auto-track or run “Sync Polymarket” first, then track manually."
-                        : "No events match. Try “Sync Polymarket”."}
+                        ? "Пока ничего не отслеживается. Запусти «Загрузить с Polymarket», подожди авто-выбор или возьми событие вручную."
+                        : "Ничего не найдено. Попробуй «Загрузить с Polymarket»."}
                     </td>
                   </tr>
                 )}

@@ -6,9 +6,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="border-b">
         <div className="container flex items-center justify-between py-6">
           <Link to="/" className="hover:opacity-80">
-            <h1 className="text-2xl font-semibold tracking-tight">LLM Arena</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">LLM Арена</h1>
             <p className="text-sm text-muted-foreground">
-              Polymarket × LLM prediction leaderboard
+              Лидерборд LLM-прогнозов на рынках Polymarket
             </p>
           </Link>
         </div>
@@ -29,6 +29,16 @@ export function formatMoney(v: number | null | undefined): string {
 export function formatDate(s: string | null | undefined): string {
   if (!s) return "—";
   return new Date(s).toISOString().slice(0, 10);
+}
+
+const RU_LABELS = {
+  tracked: "отслеживается",
+  untracked: "не отслеживается",
+  all: "все",
+} as const;
+
+export function tFilter(k: "tracked" | "untracked" | "all"): string {
+  return RU_LABELS[k];
 }
 
 export function formatPercent(v: number | null | undefined): string {

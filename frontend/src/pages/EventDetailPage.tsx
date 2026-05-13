@@ -40,7 +40,7 @@ function PredictionBar({
       <div className="rounded-md border border-red-200 bg-red-50 p-3">
         <div className="flex items-center justify-between">
           <div className="font-medium text-sm">{m.display_name}</div>
-          <div className="text-xs text-red-700">error</div>
+          <div className="text-xs text-red-700">ошибка</div>
         </div>
         <div className="mt-1 text-xs text-red-700">{prediction.error}</div>
       </div>
@@ -67,8 +67,9 @@ function PredictionBar({
                   ? "bg-amber-100 text-amber-800"
                   : "bg-sky-100 text-sky-800"
               }`}
+              title="разница с ценой Polymarket в процентных пунктах"
             >
-              {diff > 0 ? "+" : ""}{(diff * 100).toFixed(1)}pp vs market
+              {diff > 0 ? "+" : ""}{(diff * 100).toFixed(1)} п.п. к рынку
             </span>
           )}
         </div>
@@ -80,7 +81,7 @@ function PredictionBar({
           <div
             className="absolute top-[-3px] h-[18px] w-[2px] bg-foreground/70"
             style={{ left: `calc(${marketPct}% - 1px)` }}
-            title={`market: ${formatPercent(marketPrice)}`}
+            title={`Рынок: ${formatPercent(marketPrice)}`}
           />
         )}
       </div>
@@ -93,7 +94,7 @@ function PredictionBar({
       {prediction.reasoning && (
         <details className="mt-2 text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            reasoning · confidence {formatPercent(prediction.confidence)} · {prediction.latency_ms ?? "—"} ms
+            обоснование · уверенность {formatPercent(prediction.confidence)} · {prediction.latency_ms ?? "—"} мс
           </summary>
           <div className="mt-2 whitespace-pre-wrap text-foreground/80">{prediction.reasoning}</div>
         </details>
@@ -123,16 +124,16 @@ function MarketCard({
           <div>
             <div className="font-medium">{market.question}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              outcomes: {market.outcomes?.join(" / ") ?? "—"}
+              исходы: {market.outcomes?.join(" / ") ?? "—"}
               {market.is_resolved && (
                 <span className="ml-2 inline-flex rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700">
-                  resolved: {market.resolved_outcome ?? "?"}
+                  результат: {market.resolved_outcome ?? "?"}
                 </span>
               )}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">market (Yes)</div>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">рынок (Yes)</div>
             <div className="text-2xl font-semibold tabular-nums">{formatPercent(market.current_price)}</div>
           </div>
         </div>
@@ -141,7 +142,7 @@ function MarketCard({
       <div className="space-y-2 p-4">
         {sorted.length === 0 && (
           <div className="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-            No predictions yet for this market.
+            Прогнозов по этому рынку ещё нет.
           </div>
         )}
         {sorted.map((p) => {
@@ -154,7 +155,7 @@ function MarketCard({
                 onClick={() => onPredict(market.id, p.llm_model.slug)}
                 disabled={isPending || market.is_resolved}
                 className="absolute right-2 top-2 rounded border bg-white/80 px-1.5 py-0.5 text-[10px] hover:bg-muted disabled:opacity-40"
-                title="Re-run this model on this market"
+                title="Перегнать прогноз этой модели"
               >
                 {isPending ? "…" : "↻"}
               </button>
@@ -214,13 +215,13 @@ export default function EventDetailPage() {
   });
 
   if (eventQ.isLoading) {
-    return <Layout><div className="text-muted-foreground">Loading…</div></Layout>;
+    return <Layout><div className="text-muted-foreground">Загрузка…</div></Layout>;
   }
   if (eventQ.error) {
     return <Layout><div className="text-red-700">{(eventQ.error as Error).message}</div></Layout>;
   }
   const ev = eventQ.data;
-  if (!ev) return <Layout><div>Not found.</div></Layout>;
+  if (!ev) return <Layout><div>Не найдено.</div></Layout>;
 
   const totalPreds = ev.markets.reduce((s, m) => s + m.predictions.length, 0);
   const enabledModels = (modelsQ.data ?? []).filter((m) => m.is_enabled);
@@ -242,7 +243,7 @@ export default function EventDetailPage() {
 
   return (
     <Layout>
-      <Link to="/" className="text-sm text-blue-700 hover:underline">← All events</Link>
+      <Link to="/" className="text-sm text-blue-700 hover:underline">← К списку событий</Link>
 
       <div className="rounded-lg border bg-card p-6">
         <div className="flex items-start justify-between gap-4">
@@ -254,24 +255,24 @@ export default function EventDetailPage() {
               rel="noreferrer"
               className="shrink-0 rounded-md border px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
             >
-              Open on Polymarket ↗
+              Открыть на Polymarket ↗
             </a>
           )}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-          <span>{ev.markets.length} markets</span>
+          <span>рынков: {ev.markets.length}</span>
           <span>·</span>
-          <span>{totalPreds} predictions</span>
+          <span>прогнозов: {totalPreds}</span>
           {ev.end_date && (
             <>
               <span>·</span>
-              <span>ends {formatDate(ev.end_date)}</span>
+              <span>до {formatDate(ev.end_date)}</span>
             </>
           )}
           {missingPairs > 0 && (
             <>
               <span>·</span>
-              <span className="text-amber-700">{missingPairs} prediction(s) missing</span>
+              <span className="text-amber-700">не хватает прогнозов: {missingPairs}</span>
             </>
           )}
         </div>
@@ -283,14 +284,14 @@ export default function EventDetailPage() {
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             {predictAllMut.isPending
-              ? "Running…"
+              ? "Прогнозирую…"
               : missingPairs > 0
-              ? `Predict ${missingPairs} missing`
-              : "All models predicted"}
+              ? `Спрогнозировать недостающие (${missingPairs})`
+              : "Все модели отработали"}
           </button>
           {predictAllMut.data && (
             <span className="text-xs text-emerald-700">
-              ✓ created {predictAllMut.data.length} predictions
+              ✓ создано прогнозов: {predictAllMut.data.length}
             </span>
           )}
         </div>
@@ -298,7 +299,7 @@ export default function EventDetailPage() {
         {/* Legend */}
         {enabledModels.length > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>Models:</span>
+            <span>Модели:</span>
             {enabledModels.map((m) => (
               <span key={m.slug} className="inline-flex items-center gap-1">
                 <span className={`inline-block h-2 w-2 rounded-sm ${modelColor(m.slug)}`} />
@@ -307,7 +308,7 @@ export default function EventDetailPage() {
             ))}
             <span className="inline-flex items-center gap-1 ml-2">
               <span className="inline-block h-3 w-[2px] bg-foreground/70" />
-              <span>market consensus</span>
+              <span>цена рынка</span>
             </span>
           </div>
         )}
@@ -324,7 +325,7 @@ export default function EventDetailPage() {
         ))}
         {sortedMarkets.length > visibleMarkets.length && (
           <div className="text-center text-xs text-muted-foreground">
-            showing first {visibleMarkets.length} of {sortedMarkets.length} markets
+            показано {visibleMarkets.length} из {sortedMarkets.length} рынков
           </div>
         )}
       </div>
