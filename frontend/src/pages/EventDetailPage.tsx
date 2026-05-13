@@ -7,47 +7,102 @@ import {
   type MarketWithPredictions,
   type PredictionWithModel,
 } from "../lib/api";
-import { Layout, formatDate, formatPercent } from "../components/layout";
+import { Layout, formatPercent } from "../components/layout";
 
-function ReasoningCell({ p }: { p: PredictionWithModel }) {
-  const [open, setOpen] = useState(false);
-  if (!p.reasoning) return <span className="text-muted-foreground">—</span>;
-  const preview = p.reasoning.length > 120 ? p.reasoning.slice(0, 120) + "…" : p.reasoning;
-  return (
-    <div className="max-w-xl">
-      <div className="whitespace-pre-wrap text-xs text-muted-foreground">
-        {open ? p.reasoning : preview}
+const MODEL_COLORS: Record<string, string> = {
+  "openrouter-gpt-4o-mini":      "bg-emerald-500",
+  "openrouter-claude-haiku-3-5": "bg-orange-500",
+  "openrouter-gemini-flash-2-5": "bg-blue-500",
+  "openrouter-llama-4-maverick": "bg-violet-500",
+  "openrouter-deepseek-v3":      "bg-pink-500",
+};
+
+function modelColor(slug: string): string {
+  return MODEL_COLORS[slug] ?? "bg-slate-500";
+}
+
+function PredictionBar({
+  prediction,
+  marketPrice,
+}: {
+  prediction: PredictionWithModel;
+  marketPrice: number | null;
+}) {
+  const p = prediction.predicted_probability_yes;
+  const m = prediction.llm_model;
+  const widthPct = Math.max(0, Math.min(100, p * 100));
+  const marketPct = marketPrice != null ? Math.max(0, Math.min(100, marketPrice * 100)) : null;
+  const diff = marketPrice != null ? p - marketPrice : null;
+  const barColor = modelColor(m.slug);
+
+  if (prediction.error) {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50 p-3">
+        <div className="flex items-center justify-between">
+          <div className="font-medium text-sm">{m.display_name}</div>
+          <div className="text-xs text-red-700">error</div>
+        </div>
+        <div className="mt-1 text-xs text-red-700">{prediction.error}</div>
       </div>
-      {p.reasoning.length > 120 && (
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="mt-1 text-xs text-blue-700 hover:underline"
-        >
-          {open ? "less" : "more"}
-        </button>
+    );
+  }
+
+  return (
+    <div className="rounded-md border bg-white p-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`inline-block h-3 w-3 rounded-sm ${barColor}`} />
+          <span className="font-medium text-sm truncate" title={m.model_id_at_provider}>
+            {m.display_name}
+          </span>
+        </div>
+        <div className="flex items-baseline gap-2 tabular-nums">
+          <span className="text-lg font-semibold">{formatPercent(p)}</span>
+          {diff !== null && (
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded ${
+                Math.abs(diff) < 0.05
+                  ? "bg-muted text-muted-foreground"
+                  : diff > 0
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-sky-100 text-sky-800"
+              }`}
+            >
+              {diff > 0 ? "+" : ""}{(diff * 100).toFixed(1)}pp vs market
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="relative mt-2 h-3 w-full rounded bg-muted/60">
+        <div className={`absolute left-0 top-0 h-3 rounded ${barColor}`} style={{ width: `${widthPct}%` }} />
+        {marketPct !== null && (
+          <div
+            className="absolute top-[-3px] h-[18px] w-[2px] bg-foreground/70"
+            style={{ left: `calc(${marketPct}% - 1px)` }}
+            title={`market: ${formatPercent(marketPrice)}`}
+          />
+        )}
+      </div>
+
+      <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+        <span>0%</span>
+        <span>100%</span>
+      </div>
+
+      {prediction.reasoning && (
+        <details className="mt-2 text-xs">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            reasoning · confidence {formatPercent(prediction.confidence)} · {prediction.latency_ms ?? "—"} ms
+          </summary>
+          <div className="mt-2 whitespace-pre-wrap text-foreground/80">{prediction.reasoning}</div>
+        </details>
       )}
     </div>
   );
 }
 
-function diffBadge(predicted: number, market: number | null) {
-  if (market == null) return null;
-  const d = predicted - market;
-  const sign = d > 0 ? "+" : "";
-  const color =
-    Math.abs(d) < 0.05
-      ? "bg-muted text-muted-foreground"
-      : d > 0
-      ? "bg-amber-100 text-amber-800"
-      : "bg-sky-100 text-sky-800";
-  return (
-    <span className={`ml-1 inline-flex rounded px-1.5 py-0.5 text-[10px] tabular-nums ${color}`}>
-      {sign}{(d * 100).toFixed(1)} pp
-    </span>
-  );
-}
-
-function MarketBlock({
+function MarketCard({
   market,
   onPredict,
   predictingPair,
@@ -56,92 +111,57 @@ function MarketBlock({
   onPredict: (marketId: string, slug: string) => void;
   predictingPair: string | null;
 }) {
+  // Sort predictions by p_yes desc so highest forecasts are on top.
+  const sorted = [...market.predictions].sort(
+    (a, b) => b.predicted_probability_yes - a.predicted_probability_yes
+  );
+
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <div className="flex items-baseline justify-between gap-4 border-b px-4 py-3">
-        <div>
-          <div className="font-medium">{market.question}</div>
-          <div className="text-xs text-muted-foreground">
-            Outcomes: {market.outcomes?.join(", ") ?? "—"}
-            {market.is_resolved && (
-              <span className="ml-2 inline-flex rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700">
-                resolved: {market.resolved_outcome ?? "?"}
-              </span>
-            )}
+    <div className="rounded-lg border bg-card">
+      <div className="border-b px-4 py-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="font-medium">{market.question}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              outcomes: {market.outcomes?.join(" / ") ?? "—"}
+              {market.is_resolved && (
+                <span className="ml-2 inline-flex rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700">
+                  resolved: {market.resolved_outcome ?? "?"}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="text-right tabular-nums">
-          <div className="text-xs text-muted-foreground">market price (Yes)</div>
-          <div className="text-lg font-semibold">{formatPercent(market.current_price)}</div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">market (Yes)</div>
+            <div className="text-2xl font-semibold tabular-nums">{formatPercent(market.current_price)}</div>
+          </div>
         </div>
       </div>
 
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-          <tr>
-            <th className="px-4 py-2 text-left">Model</th>
-            <th className="px-4 py-2 text-right">P(Yes)</th>
-            <th className="px-4 py-2 text-right">vs market</th>
-            <th className="px-4 py-2 text-right">Conf.</th>
-            <th className="px-4 py-2 text-left">Reasoning</th>
-            <th className="px-4 py-2 text-right">Latency</th>
-            <th className="px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {market.predictions.length === 0 && (
-            <tr>
-              <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
-                No predictions yet for this market.
-              </td>
-            </tr>
-          )}
-          {market.predictions.map((p) => {
-            const key = `${market.id}:${p.llm_model.slug}`;
-            const isPending = predictingPair === key;
-            return (
-              <tr key={p.id} className="border-b last:border-0">
-                <td className="px-4 py-2">
-                  <div className="font-medium">{p.llm_model.display_name}</div>
-                  <div className="text-xs text-muted-foreground">{p.llm_model.slug}</div>
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums">
-                  {p.error ? (
-                    <span className="text-red-700">err</span>
-                  ) : (
-                    formatPercent(p.predicted_probability_yes)
-                  )}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums">
-                  {!p.error && diffBadge(p.predicted_probability_yes, market.current_price)}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums">
-                  {formatPercent(p.confidence)}
-                </td>
-                <td className="px-4 py-2">
-                  {p.error ? (
-                    <span className="text-xs text-red-700">{p.error}</span>
-                  ) : (
-                    <ReasoningCell p={p} />
-                  )}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums text-xs text-muted-foreground">
-                  {p.latency_ms ? `${p.latency_ms} ms` : "—"}
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <button
-                    onClick={() => onPredict(market.id, p.llm_model.slug)}
-                    disabled={isPending || market.is_resolved}
-                    className="rounded-md border px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-50"
-                  >
-                    {isPending ? "…" : "Re-predict"}
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="space-y-2 p-4">
+        {sorted.length === 0 && (
+          <div className="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+            No predictions yet for this market.
+          </div>
+        )}
+        {sorted.map((p) => {
+          const key = `${market.id}:${p.llm_model.slug}`;
+          const isPending = predictingPair === key;
+          return (
+            <div key={p.id} className="relative">
+              <PredictionBar prediction={p} marketPrice={market.current_price} />
+              <button
+                onClick={() => onPredict(market.id, p.llm_model.slug)}
+                disabled={isPending || market.is_resolved}
+                className="absolute right-2 top-2 rounded border bg-white/80 px-1.5 py-0.5 text-[10px] hover:bg-muted disabled:opacity-40"
+                title="Re-run this model on this market"
+              >
+                {isPending ? "…" : "↻"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -172,8 +192,8 @@ export default function EventDetailPage() {
       for (const m of data.markets) {
         if (m.is_resolved) continue;
         for (const mod of enabled) {
-          const has = m.predictions.some((p) => p.llm_model.slug === mod.slug);
-          if (!has) tasks.push(api.predictOne(m.id, mod.slug));
+          const has = m.predictions.some((p) => p.llm_model.slug === mod.slug && !p.error);
+          if (!has) tasks.push(api.predictOne(m.id, mod.slug, true));
         }
       }
       return Promise.all(tasks);
@@ -203,51 +223,90 @@ export default function EventDetailPage() {
   if (!ev) return <Layout><div>Not found.</div></Layout>;
 
   const totalPreds = ev.markets.reduce((s, m) => s + m.predictions.length, 0);
-  const visibleMarkets = ev.markets.slice(0, 30);
+  const enabledModels = (modelsQ.data ?? []).filter((m) => m.is_enabled);
+  const missingPairs = ev.markets.reduce((s, m) => {
+    if (m.is_resolved) return s;
+    return s + enabledModels.filter(
+      (mod) => !m.predictions.some((p) => p.llm_model.slug === mod.slug && !p.error)
+    ).length;
+  }, 0);
+
+  // Sort markets: those with predictions first, then by name.
+  const sortedMarkets = [...ev.markets].sort((a, b) => {
+    const ap = a.predictions.length > 0 ? 0 : 1;
+    const bp = b.predictions.length > 0 ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return a.question.localeCompare(b.question);
+  });
+  const visibleMarkets = sortedMarkets.slice(0, 30);
 
   return (
     <Layout>
-      <div className="flex flex-wrap items-center gap-3">
-        <Link to="/" className="text-sm text-blue-700 hover:underline">← Back to events</Link>
-      </div>
+      <Link to="/" className="text-sm text-blue-700 hover:underline">← All events</Link>
 
       <div className="rounded-lg border bg-card p-6">
-        <h2 className="text-xl font-semibold">{ev.title}</h2>
-        <div className="mt-1 text-sm text-muted-foreground">
-          {ev.markets.length} markets · {totalPreds} predictions ·
-          {" "}ends {formatDate(ev.markets[0]?.resolved_at)}
+        <h2 className="text-2xl font-semibold">{ev.title}</h2>
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+          <span>{ev.markets.length} markets</span>
+          <span>·</span>
+          <span>{totalPreds} predictions</span>
+          {missingPairs > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-amber-700">{missingPairs} prediction(s) missing</span>
+            </>
+          )}
         </div>
+
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             onClick={() => predictAllMut.mutate()}
-            disabled={predictAllMut.isPending}
+            disabled={predictAllMut.isPending || missingPairs === 0}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {predictAllMut.isPending ? "Running…" : "Predict missing"}
+            {predictAllMut.isPending
+              ? "Running…"
+              : missingPairs > 0
+              ? `Predict ${missingPairs} missing`
+              : "All models predicted"}
           </button>
           {predictAllMut.data && (
             <span className="text-xs text-emerald-700">
               ✓ created {predictAllMut.data.length} predictions
             </span>
           )}
-          {predictAllMut.error && (
-            <span className="text-xs text-red-700">{(predictAllMut.error as Error).message}</span>
-          )}
         </div>
+
+        {/* Legend */}
+        {enabledModels.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>Models:</span>
+            {enabledModels.map((m) => (
+              <span key={m.slug} className="inline-flex items-center gap-1">
+                <span className={`inline-block h-2 w-2 rounded-sm ${modelColor(m.slug)}`} />
+                {m.display_name}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1 ml-2">
+              <span className="inline-block h-3 w-[2px] bg-foreground/70" />
+              <span>market consensus</span>
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {visibleMarkets.map((m) => (
-          <MarketBlock
+          <MarketCard
             key={m.id}
             market={m}
             onPredict={(marketId, slug) => predictOneMut.mutate({ marketId, slug })}
             predictingPair={predictingPair}
           />
         ))}
-        {ev.markets.length > visibleMarkets.length && (
+        {sortedMarkets.length > visibleMarkets.length && (
           <div className="text-center text-xs text-muted-foreground">
-            showing first {visibleMarkets.length} of {ev.markets.length} markets
+            showing first {visibleMarkets.length} of {sortedMarkets.length} markets
           </div>
         )}
       </div>

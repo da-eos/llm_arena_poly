@@ -26,6 +26,8 @@ export interface EventItem {
   is_tracked: boolean;
   created_at: string;
   updated_at: string;
+  markets_count: number;
+  predictions_count: number;
 }
 
 export interface EventList {

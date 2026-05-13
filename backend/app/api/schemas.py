@@ -35,6 +35,8 @@ class EventRead(_ORMModel):
     is_tracked: bool
     created_at: datetime
     updated_at: datetime
+    markets_count: int = 0
+    predictions_count: int = 0
 
 
 class EventDetail(EventRead):
