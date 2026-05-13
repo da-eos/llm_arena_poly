@@ -71,6 +71,14 @@ function PredictionBar({
           <span className="font-medium text-sm truncate" title={m.model_id_at_provider}>
             {m.display_name}
           </span>
+          {m.model_id_at_provider.endsWith(":online") && (
+            <span
+              className="inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+              title="С веб-поиском (OpenRouter :online)"
+            >
+              🌐 web
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <YesNoBadge p_yes={p} size="lg" />
