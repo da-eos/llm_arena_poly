@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     refresh_tracked_interval_min: int = Field(default=15)
     predictions_interval_min: int = Field(default=60)
 
+    # Auto-track tuning: prefer events that resolve soon and have deep liquidity.
+    auto_track_top_n: int = Field(default=10)
+    auto_track_max_days_to_end: int = Field(default=90)
+    auto_track_min_liquidity: float = Field(default=10_000.0)
+
     @property
     def database_url(self) -> str:
         return (
