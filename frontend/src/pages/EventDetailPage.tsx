@@ -21,6 +21,21 @@ function modelColor(slug: string): string {
   return MODEL_COLORS[slug] ?? "bg-slate-500";
 }
 
+function YesNoBadge({ p_yes, size = "md" }: { p_yes: number; size?: "md" | "lg" }) {
+  const isYes = p_yes >= 0.5;
+  const sizeCls = size === "lg" ? "px-4 py-1.5 text-base" : "px-3 py-1 text-sm";
+  return (
+    <span
+      className={`inline-flex items-center rounded-md font-bold uppercase tracking-wide ${sizeCls} ${
+        isYes ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
+      }`}
+      title={`P(Yes) = ${(p_yes * 100).toFixed(1)}%`}
+    >
+      {isYes ? "ДА" : "НЕТ"}
+    </span>
+  );
+}
+
 function PredictionBar({
   prediction,
   marketPrice,
@@ -30,9 +45,6 @@ function PredictionBar({
 }) {
   const p = prediction.predicted_probability_yes;
   const m = prediction.llm_model;
-  const widthPct = Math.max(0, Math.min(100, p * 100));
-  const marketPct = marketPrice != null ? Math.max(0, Math.min(100, marketPrice * 100)) : null;
-  const diff = marketPrice != null ? p - marketPrice : null;
   const barColor = modelColor(m.slug);
 
   if (prediction.error) {
@@ -47,54 +59,47 @@ function PredictionBar({
     );
   }
 
+  const marketIsYes = marketPrice != null && marketPrice >= 0.5;
+  const modelIsYes = p >= 0.5;
+  const agreesWithMarket = marketPrice != null && marketIsYes === modelIsYes;
+
   return (
     <div className="rounded-md border bg-white p-3">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`inline-block h-3 w-3 rounded-sm ${barColor}`} />
           <span className="font-medium text-sm truncate" title={m.model_id_at_provider}>
             {m.display_name}
           </span>
         </div>
-        <div className="flex items-baseline gap-2 tabular-nums">
-          <span className="text-lg font-semibold">{formatPercent(p)}</span>
-          {diff !== null && (
+        <div className="flex items-center gap-2">
+          <YesNoBadge p_yes={p} size="lg" />
+          {marketPrice != null && (
             <span
-              className={`text-xs px-1.5 py-0.5 rounded ${
-                Math.abs(diff) < 0.05
+              className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                agreesWithMarket
                   ? "bg-muted text-muted-foreground"
-                  : diff > 0
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-sky-100 text-sky-800"
+                  : "bg-amber-100 text-amber-800"
               }`}
-              title="разница с ценой Polymarket в процентных пунктах"
+              title={`Рынок сейчас: ${marketIsYes ? "ДА" : "НЕТ"}`}
             >
-              {diff > 0 ? "+" : ""}{(diff * 100).toFixed(1)} п.п. к рынку
+              {agreesWithMarket ? "= с рынком" : "≠ с рынком"}
             </span>
           )}
         </div>
       </div>
 
-      <div className="relative mt-2 h-3 w-full rounded bg-muted/60">
-        <div className={`absolute left-0 top-0 h-3 rounded ${barColor}`} style={{ width: `${widthPct}%` }} />
-        {marketPct !== null && (
-          <div
-            className="absolute top-[-3px] h-[18px] w-[2px] bg-foreground/70"
-            style={{ left: `calc(${marketPct}% - 1px)` }}
-            title={`Рынок: ${formatPercent(marketPrice)}`}
-          />
+      <div className="mt-2 flex items-baseline justify-between text-xs text-muted-foreground tabular-nums">
+        <span>уверенность модели: <span className="font-medium text-foreground">{formatPercent(p)}</span></span>
+        {marketPrice != null && (
+          <span>цена рынка (Yes): <span className="font-medium text-foreground">{formatPercent(marketPrice)}</span></span>
         )}
-      </div>
-
-      <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
-        <span>0%</span>
-        <span>100%</span>
       </div>
 
       {prediction.reasoning && (
         <details className="mt-2 text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            обоснование · уверенность {formatPercent(prediction.confidence)} · {prediction.latency_ms ?? "—"} мс
+            обоснование · {prediction.latency_ms ?? "—"} мс
           </summary>
           <div className="mt-2 whitespace-pre-wrap text-foreground/80">{prediction.reasoning}</div>
         </details>
@@ -124,17 +129,26 @@ function MarketCard({
           <div>
             <div className="font-medium">{market.question}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              исходы: {market.outcomes?.join(" / ") ?? "—"}
               {market.is_resolved && (
-                <span className="ml-2 inline-flex rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700">
-                  результат: {market.resolved_outcome ?? "?"}
+                <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700">
+                  результат:
+                  <YesNoBadge p_yes={market.resolved_outcome?.toLowerCase() === "yes" ? 1 : 0} />
                 </span>
               )}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">рынок (Yes)</div>
-            <div className="text-2xl font-semibold tabular-nums">{formatPercent(market.current_price)}</div>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">мнение рынка</div>
+            {market.current_price != null ? (
+              <div className="flex items-baseline justify-end gap-2">
+                <YesNoBadge p_yes={market.current_price} size="lg" />
+                <div className="text-sm tabular-nums text-muted-foreground">
+                  {formatPercent(market.current_price >= 0.5 ? market.current_price : 1 - market.current_price)}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">—</div>
+            )}
           </div>
         </div>
       </div>
@@ -306,9 +320,10 @@ export default function EventDetailPage() {
                 {m.display_name}
               </span>
             ))}
-            <span className="inline-flex items-center gap-1 ml-2">
-              <span className="inline-block h-3 w-[2px] bg-foreground/70" />
-              <span>цена рынка</span>
+            <span className="ml-2 inline-flex items-center gap-1">
+              <span className="inline-flex rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">ДА</span>
+              <span className="inline-flex rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">НЕТ</span>
+              <span>= ответ модели</span>
             </span>
           </div>
         )}
