@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.api.admin import router as admin_router
 from app.api.events import router as events_router
 from app.db import engine
+from app.scheduler import start_scheduler, stop_scheduler
 from app.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,9 @@ async def lifespan(app: FastAPI):
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
     logger.info("db connection ok")
+    start_scheduler()
     yield
+    stop_scheduler()
     await engine.dispose()
 
 

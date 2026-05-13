@@ -1,15 +1,34 @@
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import SyncResult
 from app.db import get_session
+from app.jobs import (
+    auto_track_top_events_job,
+    refresh_tracked_events_job,
+    sync_trending_events_job,
+)
+from app.scheduler import scheduler
 from app.services.ingestion import sync_trending_events
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+class JobInfo(BaseModel):
+    id: str
+    name: str
+    next_run_time: datetime | None
+    trigger: str
+
+
+class JobsList(BaseModel):
+    items: list[JobInfo]
 
 
 @router.post("/sync/polymarket", response_model=SyncResult)
@@ -20,3 +39,32 @@ async def sync_polymarket(
 ) -> SyncResult:
     counts = await sync_trending_events(session, limit=limit, min_volume=min_volume)
     return SyncResult(**counts)
+
+
+@router.get("/jobs", response_model=JobsList)
+async def list_jobs() -> JobsList:
+    items = [
+        JobInfo(
+            id=j.id,
+            name=j.name or j.id,
+            next_run_time=j.next_run_time,
+            trigger=str(j.trigger),
+        )
+        for j in scheduler.get_jobs()
+    ]
+    return JobsList(items=items)
+
+
+@router.post("/jobs/{job_id}/run")
+async def run_job_now(job_id: str) -> dict[str, str]:
+    """Force-run a registered scheduler job once (for debugging)."""
+    handlers = {
+        "sync_trending_events": sync_trending_events_job,
+        "auto_track_top_events": auto_track_top_events_job,
+        "refresh_tracked_events": refresh_tracked_events_job,
+    }
+    fn = handlers.get(job_id)
+    if fn is None:
+        raise HTTPException(status_code=404, detail="unknown job")
+    await fn()
+    return {"status": "ok", "job": job_id}
