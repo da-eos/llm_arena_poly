@@ -12,6 +12,9 @@ from app.jobs import (
     refresh_tracked_events_job,
     sync_trending_events_job,
 )
+from app.llm.base import ProviderDisabledError, ProviderError
+from app.llm.registry import get_provider, provider_status
+from app.models import LLMProviderEnum
 from app.scheduler import scheduler
 from app.services.ingestion import sync_trending_events
 
@@ -53,6 +56,43 @@ async def list_jobs() -> JobsList:
         for j in scheduler.get_jobs()
     ]
     return JobsList(items=items)
+
+
+class TestProviderRequest(BaseModel):
+    provider: LLMProviderEnum
+    model_id: str
+    prompt: str
+
+
+class TestProviderResponse(BaseModel):
+    probability_yes: float
+    reasoning: str
+    confidence: float | None = None
+    latency_ms: int
+    cost_usd: float | None = None
+
+
+@router.get("/providers")
+async def list_providers() -> dict[str, bool]:
+    return provider_status()
+
+
+@router.post("/test-provider", response_model=TestProviderResponse)
+async def test_provider(req: TestProviderRequest) -> TestProviderResponse:
+    provider = get_provider(req.provider)
+    try:
+        result = await provider.predict(req.prompt, req.model_id)
+    except ProviderDisabledError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return TestProviderResponse(
+        probability_yes=result.probability_yes,
+        reasoning=result.reasoning,
+        confidence=result.confidence,
+        latency_ms=result.latency_ms,
+        cost_usd=result.cost_usd,
+    )
 
 
 @router.post("/jobs/{job_id}/run")
