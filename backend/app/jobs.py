@@ -14,6 +14,7 @@ from app.clients.polymarket import PolymarketClient, PolymarketError
 from app.db import async_session_factory
 from app.models import Event, Market
 from app.services.ingestion import refresh_event, sync_trending_events
+from app.services.predictor import run_predictions_for_tracked
 from app.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,15 @@ async def auto_track_top_events_job(top_n: int | None = None) -> None:
             )
     except Exception:
         logger.exception("job: auto_track_top_events failed")
+
+
+async def predictions_job() -> None:
+    logger.info("job: predictions start")
+    try:
+        counts = await run_predictions_for_tracked()
+        logger.info("job: predictions done %s", counts)
+    except Exception:
+        logger.exception("job: predictions failed")
 
 
 async def refresh_tracked_events_job() -> None:

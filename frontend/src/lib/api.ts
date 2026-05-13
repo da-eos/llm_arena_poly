@@ -50,6 +50,47 @@ export interface EventDetail extends EventItem {
   markets: Market[];
 }
 
+export interface LLMModelRead {
+  id: string;
+  slug: string;
+  provider: string;
+  display_name: string;
+  model_id_at_provider: string;
+  is_enabled: boolean;
+}
+
+export interface PredictionWithModel {
+  id: string;
+  market_id: string;
+  llm_model_id: string;
+  predicted_probability_yes: number;
+  reasoning: string | null;
+  confidence: number | null;
+  latency_ms: number | null;
+  cost_usd: number | null;
+  error: string | null;
+  created_at: string;
+  llm_model: LLMModelRead;
+}
+
+export interface MarketWithPredictions extends Market {
+  predictions: PredictionWithModel[];
+}
+
+export interface EventPredictions {
+  event_id: string;
+  title: string;
+  markets: MarketWithPredictions[];
+}
+
+export interface PredictRunResult {
+  total: number;
+  ok: number;
+  error: number;
+  skipped: number;
+  fail: number;
+}
+
 export interface JobInfo {
   id: string;
   name: string;
@@ -74,7 +115,19 @@ export const api = {
       `/admin/sync/polymarket?limit=${limit}`,
       { method: "POST" }
     ),
+  predictNow: (force = false) =>
+    request<PredictRunResult>(
+      `/admin/predict-now${force ? "?force=true" : ""}`,
+      { method: "POST" }
+    ),
   listJobs: () => request<{ items: JobInfo[] }>(`/admin/jobs`),
   runJob: (id: string) =>
     request<{ status: string; job: string }>(`/admin/jobs/${id}/run`, { method: "POST" }),
+  listModels: () => request<LLMModelRead[]>(`/models`),
+  eventPredictions: (id: string) => request<EventPredictions>(`/events/${id}/predictions`),
+  predictOne: (marketId: string, modelSlug: string, force = false) =>
+    request<PredictionWithModel>(
+      `/predictions/market/${marketId}/model/${modelSlug}${force ? "?force=true" : ""}`,
+      { method: "POST" }
+    ),
 };

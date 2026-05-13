@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from app.api.admin import router as admin_router
 from app.api.events import router as events_router
+from app.api.predictions import router as predictions_router
 from app.db import engine
 from app.scheduler import start_scheduler, stop_scheduler
 from app.settings import get_settings
@@ -38,6 +39,7 @@ app.add_middleware(
 
 
 app.include_router(events_router)
+app.include_router(predictions_router)
 app.include_router(admin_router)
 
 

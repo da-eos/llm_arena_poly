@@ -55,3 +55,47 @@ class SyncResult(BaseModel):
 
 class OkResponse(BaseModel):
     ok: bool = True
+
+
+class LLMModelRead(_ORMModel):
+    id: uuid.UUID
+    slug: str
+    provider: str
+    display_name: str
+    model_id_at_provider: str
+    is_enabled: bool
+
+
+class PredictionRead(_ORMModel):
+    id: uuid.UUID
+    market_id: uuid.UUID
+    llm_model_id: uuid.UUID
+    predicted_probability_yes: float
+    reasoning: str | None = None
+    confidence: float | None = None
+    latency_ms: int | None = None
+    cost_usd: float | None = None
+    error: str | None = None
+    created_at: datetime
+
+
+class PredictionWithModel(PredictionRead):
+    llm_model: LLMModelRead
+
+
+class MarketWithPredictions(MarketRead):
+    predictions: list[PredictionWithModel] = []
+
+
+class EventPredictions(BaseModel):
+    event_id: uuid.UUID
+    title: str
+    markets: list[MarketWithPredictions]
+
+
+class PredictRunResult(BaseModel):
+    total: int
+    ok: int
+    error: int
+    skipped: int
+    fail: int

@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import SyncResult
+from app.api.schemas import PredictRunResult, SyncResult
 from app.db import get_session
 from app.jobs import (
     auto_track_top_events_job,
+    predictions_job,
     refresh_tracked_events_job,
     sync_trending_events_job,
 )
@@ -17,6 +18,7 @@ from app.llm.registry import get_provider, provider_status
 from app.models import LLMProviderEnum
 from app.scheduler import scheduler
 from app.services.ingestion import sync_trending_events
+from app.services.predictor import run_predictions_for_tracked
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -72,6 +74,12 @@ class TestProviderResponse(BaseModel):
     cost_usd: float | None = None
 
 
+@router.post("/predict-now", response_model=PredictRunResult)
+async def predict_now(force: bool = False) -> PredictRunResult:
+    counts = await run_predictions_for_tracked(force=force)
+    return PredictRunResult(**counts)
+
+
 @router.get("/providers")
 async def list_providers() -> dict[str, bool]:
     return provider_status()
@@ -102,6 +110,7 @@ async def run_job_now(job_id: str) -> dict[str, str]:
         "sync_trending_events": sync_trending_events_job,
         "auto_track_top_events": auto_track_top_events_job,
         "refresh_tracked_events": refresh_tracked_events_job,
+        "predictions": predictions_job,
     }
     fn = handlers.get(job_id)
     if fn is None:
