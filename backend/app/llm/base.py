@@ -17,10 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 JSON_INSTRUCTION = (
-    'Respond with a single JSON object ONLY, no prose, no markdown fences. '
-    'Schema: {"probability_yes": number 0..1, "reasoning": string, '
-    '"confidence": number 0..1}. The "probability_yes" must be your '
-    'estimate that the event resolves YES.'
+    'Ответь ОДНИМ JSON-объектом, без пояснений и без markdown-блоков. '
+    'Схема: {"probability_yes": число 0..1, "reasoning": строка, '
+    '"confidence": число 0..1}. '
+    '"probability_yes" — твоя оценка вероятности того, что рынок резолвнется YES. '
+    'Поле "reasoning" пиши ОБЯЗАТЕЛЬНО НА РУССКОМ ЯЗЫКЕ, 2–4 предложения, '
+    'без воды, по делу. "confidence" — твоя самооценка уверенности.'
 )
 
 
@@ -156,8 +158,8 @@ class LLMProvider(ABC):
             # Second attempt with a stricter suffix.
             retry_prompt = (
                 f"{full_prompt}\n\n"
-                "Your previous reply was not valid JSON. Reply with ONLY a JSON "
-                "object matching the schema, nothing else."
+                "Предыдущий ответ не был валидным JSON. Верни ТОЛЬКО JSON-объект "
+                "по указанной схеме и ничего больше. reasoning — на русском."
             )
             start2 = time.monotonic()
             text2, raw2, cost2 = await self._call(retry_prompt, model_id, client=client)
