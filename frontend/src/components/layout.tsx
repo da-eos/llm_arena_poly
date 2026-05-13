@@ -35,3 +35,9 @@ export function formatPercent(v: number | null | undefined): string {
   if (v == null) return "—";
   return `${(v * 100).toFixed(1)}%`;
 }
+
+export function polymarketUrl(slug: string | null | undefined, polymarketId?: string): string | null {
+  if (slug) return `https://polymarket.com/event/${slug}`;
+  if (polymarketId) return `https://polymarket.com/event/${polymarketId}`;
+  return null;
+}

@@ -92,6 +92,9 @@ class MarketWithPredictions(MarketRead):
 class EventPredictions(BaseModel):
     event_id: uuid.UUID
     title: str
+    slug: str | None = None
+    polymarket_id: str
+    end_date: datetime | None = None
     markets: list[MarketWithPredictions]
 
 

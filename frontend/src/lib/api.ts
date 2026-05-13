@@ -82,6 +82,9 @@ export interface MarketWithPredictions extends Market {
 export interface EventPredictions {
   event_id: string;
   title: string;
+  slug: string | null;
+  polymarket_id: string;
+  end_date: string | null;
   markets: MarketWithPredictions[];
 }
 

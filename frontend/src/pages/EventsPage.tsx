@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, type EventItem } from "../lib/api";
-import { Layout, formatDate, formatMoney } from "../components/layout";
+import { Layout, formatDate, formatMoney, polymarketUrl } from "../components/layout";
 
 function EventRow({ event }: { event: EventItem }) {
   const qc = useQueryClient();
@@ -14,9 +14,22 @@ function EventRow({ event }: { event: EventItem }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/40">
       <td className="px-4 py-3">
-        <Link to={`/events/${event.id}`} className="font-medium text-foreground hover:underline">
-          {event.title}
-        </Link>
+        <div className="flex items-baseline gap-2">
+          <Link to={`/events/${event.id}`} className="font-medium text-foreground hover:underline">
+            {event.title}
+          </Link>
+          {polymarketUrl(event.slug, event.polymarket_id) && (
+            <a
+              href={polymarketUrl(event.slug, event.polymarket_id) ?? "#"}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-blue-700 hover:underline"
+              title="Open on Polymarket"
+            >
+              ↗ polymarket
+            </a>
+          )}
+        </div>
         <div className="text-xs text-muted-foreground">
           {event.markets_count} markets · ends {formatDate(event.end_date)}
         </div>

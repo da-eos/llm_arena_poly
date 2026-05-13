@@ -61,6 +61,9 @@ async def event_predictions(event_id: uuid.UUID, session: SessionDep) -> EventPr
     return EventPredictions(
         event_id=event.id,
         title=event.title,
+        slug=event.slug,
+        polymarket_id=event.polymarket_id,
+        end_date=event.end_date,
         markets=[
             MarketWithPredictions(
                 id=m.id,

@@ -7,7 +7,7 @@ import {
   type MarketWithPredictions,
   type PredictionWithModel,
 } from "../lib/api";
-import { Layout, formatPercent } from "../components/layout";
+import { Layout, formatDate, formatPercent, polymarketUrl } from "../components/layout";
 
 const MODEL_COLORS: Record<string, string> = {
   "openrouter-gpt-4o-mini":      "bg-emerald-500",
@@ -245,11 +245,29 @@ export default function EventDetailPage() {
       <Link to="/" className="text-sm text-blue-700 hover:underline">← All events</Link>
 
       <div className="rounded-lg border bg-card p-6">
-        <h2 className="text-2xl font-semibold">{ev.title}</h2>
+        <div className="flex items-start justify-between gap-4">
+          <h2 className="text-2xl font-semibold">{ev.title}</h2>
+          {polymarketUrl(ev.slug, ev.polymarket_id) && (
+            <a
+              href={polymarketUrl(ev.slug, ev.polymarket_id) ?? "#"}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 rounded-md border px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+            >
+              Open on Polymarket ↗
+            </a>
+          )}
+        </div>
         <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
           <span>{ev.markets.length} markets</span>
           <span>·</span>
           <span>{totalPreds} predictions</span>
+          {ev.end_date && (
+            <>
+              <span>·</span>
+              <span>ends {formatDate(ev.end_date)}</span>
+            </>
+          )}
           {missingPairs > 0 && (
             <>
               <span>·</span>
