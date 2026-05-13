@@ -135,4 +135,45 @@ export const api = {
       `/predictions/market/${marketId}/model/${modelSlug}${force ? "?force=true" : ""}`,
       { method: "POST" }
     ),
+  leaderboard: (metric: "brier" | "logloss" | "pnl" = "brier", category?: string) => {
+    const qs = new URLSearchParams({ metric });
+    if (category) qs.set("category", category);
+    return request<LeaderboardResponse>(`/leaderboard?${qs}`);
+  },
+  modelHistory: (slug: string) => request<HistoryRow[]>(`/models/${slug}/history`),
+  scoreNow: () => request<{ markets: number; scored: number; skipped: number }>(`/admin/score-now`, { method: "POST" }),
 };
+
+export interface LeaderboardRow {
+  slug: string;
+  display_name: string;
+  provider: string;
+  n: number;
+  avg_brier: number | null;
+  avg_log_loss: number | null;
+  total_pnl: number;
+  accuracy: number | null;
+}
+
+export interface LeaderboardResponse {
+  metric: string;
+  rows: LeaderboardRow[];
+}
+
+export interface HistoryRow {
+  score_id: string;
+  prediction_id: string;
+  market_id: string;
+  event_id: string;
+  event_title: string;
+  market_question: string;
+  resolved_outcome: string | null;
+  predicted_probability_yes: number;
+  market_price: number | null;
+  brier_score: number;
+  log_loss: number;
+  pnl_demo_usd: number;
+  cum_pnl_usd: number;
+  was_correct: boolean;
+  created_at: string;
+}

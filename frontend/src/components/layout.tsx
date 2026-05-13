@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,6 +11,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
               Лидерборд LLM-прогнозов на рынках Polymarket
             </p>
           </Link>
+          <nav className="flex items-center gap-1 text-sm">
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `rounded-md px-3 py-1.5 ${isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`
+              }
+            >
+              События
+            </NavLink>
+            <NavLink
+              to="/leaderboard"
+              className={({ isActive }) =>
+                `rounded-md px-3 py-1.5 ${isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`
+              }
+            >
+              Лидерборд
+            </NavLink>
+          </nav>
         </div>
       </header>
       <main className="container space-y-6 py-8">{children}</main>

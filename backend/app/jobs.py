@@ -15,6 +15,7 @@ from app.db import async_session_factory
 from app.models import Event, Market
 from app.services.ingestion import refresh_event, sync_trending_events
 from app.services.predictor import run_predictions_for_tracked
+from app.services.scoring import score_resolved_market
 from app.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -138,10 +139,12 @@ async def refresh_tracked_events_job() -> None:
                     if flipped:
                         newly_resolved_total += len(flipped)
                         for m in flipped:
+                            res = await score_resolved_market(session, m.id)
                             logger.info(
                                 "market resolved: event=%s market=%s outcome=%s "
-                                "(TODO: score in phase-6)",
+                                "scored=%d skipped=%d",
                                 ev.polymarket_id, m.polymarket_id, m.resolved_outcome,
+                                res["scored"], res["skipped"],
                             )
             await session.commit()
             logger.info(
